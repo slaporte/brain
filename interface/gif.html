@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+  <head>
+    <title>gif</title>
+    <script>
+    if ('registerElement' in document
+      && 'createShadowRoot' in HTMLElement.prototype
+      && 'import' in document.createElement('link')
+      && 'content' in document.createElement('template')) {
+      // We're using a browser with native WC support!
+    } else {
+      document.write('<script src="https:\/\/cdnjs.cloudflare.com/ajax/libs/polymer/0.3.4/platform.js"><\/script>')
+    }
+    </script>
+    <style>
+    * {
+      font-family: sans-serif;
+    }
+    .image-container {
+      width: 100%;
+      height: 1000px;
+    }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <link rel="import" href="/static/dist/x-gif.html">
+    <script type="text/javascript" src="static/socket.io.js"></script>
+    <script>
+    var timeout = false;
+    var score = 0;
+    function new_gif() {
+      $.ajax({
+          type: "GET",
+          dataType: "jsonp",
+          cache: false,
+          url: "http://johnjohnston.info/oddsandends/ds106gif?f=jsonp&c=10",
+          success: function(data) {
+            timeout = true;
+            var rand = Math.round(Math.random() * data.length);
+            console.log(gif_url)
+            if (data[rand])  {
+              var gif_url = data[rand].url;
+            } else if (data[rand - 1]) {
+              var gif_url = data[rand - 1].url;
+            } else {
+              var gif_url = data[rand + 1].url;
+            }
+            $('.image-container').empty().html('<x-gif src="' + gif_url + '" speed="1" id="gif" fill></x-gif>');
+            score = 0;
+            setTimeout(function(){ console.log('timeout reset'); timeout = false; }, 5000);
+          }
+      });
+    }
+    $(function() {
+    $('.debug').show().fadeOut(4000);
+    WEB_SOCKET_SWF_LOCATION = "/static/WebSocketMain.swf";
+    WEB_SOCKET_DEBUG = true;
+
+    // Socket.io specific code
+    var socket = io.connect('/mindflex');
+
+    // Setup plot
+    var options = {
+        series: { shadowSize: 0 }, // drawing is faster without shadows
+        yaxis: { min: 0, max: 100 },
+        xaxis: { show: false }
+    };
+    
+    socket.on('data', function(data) {
+      $('#score').html(score);
+      score++;
+      if (data.quality < 60) {
+        // decent quality
+        $('.warning').hide(); 
+      } else {
+        $('.warning').show();
+      }
+      $('#attention').html(data.attention);
+      $('#meditation').html(data.meditation);
+      var attention = data.attention / 100
+      $('#gif').attr('speed', attention);
+      if (!timeout && data.attention < data.meditation) {
+        $('.debug').show().fadeOut(4000);
+        new_gif();
+      }
+    });
+
+    });
+</script>
+<style>
+.box {
+  color: white;
+  position: absolute;
+  top: 2em;
+  left: 5em;
+  width: 10em;
+  z-index: 1000;
+  font-size: 50pt;
+  font-weight: 800;
+  padding: 1em;
+}
+.score {
+  background: rgba(218, 218, 218, 0.8);
+  top: 1em;
+  left: 1em;
+  width: 1em;
+  color: #000;
+  font-size: 25pt;
+}
+.warning {
+  background: rgba(250, 0, 0, 0.8);
+}
+.debug {
+  background: rgba(0, 250, 0, 0.8);
+  top: 5em !important;
+}
+
+</style>
+  </head>
+  <body unresolved>
+    <!--<polymer-ui-toggle-button></polymer-ui-toggle-button>-->
+    <div class="box score"><span id="score">.</span></div>
+    <div class="box warning">No connection!</div>
+    <div class="box debug">
+      <p>attention: <span id="attention"></span></p>
+      <p>meditation: <span id="meditation"></span></p>
+    </div>
+    <div class="image-container">
+      <x-gif src="http://38.media.tumblr.com/9fd197cdf5b955e8ddf2498586b93843/tumblr_myj7i25arL1qzt4vjo1_500.gif" speed="1" id="gif" fill></x-gif>
+    </div>
+  </body>
+</html>

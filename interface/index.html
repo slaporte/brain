@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link href="static/css/style.css" rel="stylesheet">
+    <script type="text/javascript" src="static/jquery-1.6.1.min.js"></script>
+    <script type="text/javascript" src="static/jquery.flot.js"></script>
+    <script type="text/javascript" src="static/socket.io.js"></script>
+    <script>
+$(function() {
+
+WEB_SOCKET_SWF_LOCATION = "/static/WebSocketMain.swf";
+WEB_SOCKET_DEBUG = true;
+
+var socket = io.connect('/mindflex');
+
+var options = {
+    series: { shadowSize: 0 }, // drawing is faster without shadows
+    yaxis: { min: 0, max: 100 },
+    xaxis: { show: false }
+};
+
+var enumerate = function(l) {
+    var res = [];
+    for (var i=0; i<l.length; ++i)
+        res.push([i, l[i]])
+    return res;
+};
+
+var a1 = [],
+    m1 = [];
+
+for (var i=0; i<300; i++) {
+    a1.push(0);
+    m1.push(0);
+}
+    
+var a_plot = $.plot($('#attention_graph'), [{data: enumerate(a1), label: 'attention'}, {data: enumerate(m1), label: 'meditation'}], options);
+
+
+var ctx = $("#canvas").get()[0].getContext("2d");
+var gradient = ctx.createLinearGradient(0,0,0,300);
+    gradient.addColorStop(1,'#5ebf36');
+    gradient.addColorStop(0.75,'#365ebf');
+    gradient.addColorStop(0.25,'#bf365e');
+    gradient.addColorStop(0,'#fff');
+
+
+function drawSpectrum(array) {
+    for (var i = 0; i < (array.length); i++ ){
+        var value = array[i] / 100000;
+
+        ctx.fillRect(i*75, 300-value, 73, 300);
+        //console.log([i,value])
+    }
+};
+
+socket.on('data', function(data) {
+    var quality_percent = (200 - data.quality) / 2;
+    if (data.quality < 60) {
+      $('#quality').attr('class', 'good connection').html('Connected (' + quality_percent + '%)');
+    } else {
+      $('#quality').attr('class', 'bad connection').html('Poor signal (' + quality_percent + '%)');
+    }
+    a1 = a1.slice(1);
+    m1 = m1.slice(1);
+
+    a1.push(data.attention);
+    m1.push(data.meditation);
+    
+    a_plot.setData([{data: enumerate(a1), label: 'attention'}, {data: enumerate(m1), label: 'meditation'}]);
+    a_plot.draw();
+
+    ctx.clearRect(0, 0, 600, 300);
+
+    ctx.fillStyle=gradient;
+    
+    if (data.quality < 60) {
+      drawSpectrum(data.eeg);
+    } else {
+      drawSpectrum([0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    console.log(data.meditation > data.attention)
+
+});
+
+});
+  </script>
+  <style>
+  .connection {
+    padding: 1em;
+  }
+  .good {
+    background: green;
+    color: white;
+  }
+  .bad {
+    background: red;
+    color: white;
+  }
+  .content {
+    width: 600px;
+    margin: 10% auto;
+  }
+  </style>
+  </head>
+<body>
+  <div class="content">
+    <h1>Brain graph</h1>
+    <div id="quality" class="bad connection">Disconnected</div>
+    <p></p>
+    <h2>Attention</h2>
+    <div id="attention_graph" style="width: 600px; height: 300px;"></div>
+    <h2>EEG</h2>
+    <canvas id="canvas" width="600" height="300" style="display: block;"></canvas>
+  </div>
+</body>
+</html>
